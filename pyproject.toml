@@ -4,8 +4,8 @@ build-backend = "flit_core.buildapi"
 
 [project]
 name = "iberspeech_2026"
-version = "0.0.1"
-description = "Repo for the UVigo-Balidea submitions on the ALBAYZIN 2026"
+version = "0.1.0"
+description = "UVigo-Balidea submission for IberSPEECH 2026 ALBAYZIN Speech-COSER (ASR + SD)"
 authors = [
   { name = "Jose Manuel Ramirez" },
 ]
@@ -13,21 +13,62 @@ license = { file = "LICENSE" }
 readme = "README.md"
 classifiers = [
     "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: MIT License"
+    "License :: OSI Approved :: MIT License",
 ]
 dependencies = [
     "pip",
-    "pytest",
     "python-dotenv",
-    "ruff",
+    # CLI
+    "typer>=0.12",
+    "rich>=13.7",
+    "pyyaml>=6.0",
+    # Numeric / data
+    "numpy>=1.24,<2.0",
+    "pandas>=2.1",
+    "pyarrow>=15.0",
+    "scikit-learn>=1.4",
+    "scipy>=1.11",
+    # Audio
+    "soundfile>=0.12",
+    "librosa>=0.10",
+    # ASR / SD heavy stack (only resolved when needed)
+    "torch>=2.4",
+    "torchaudio>=2.4",
+    "transformers>=4.45",
+    "accelerate>=1.0",
+    "datasets>=3.0",
+    "pyannote.audio>=3.3",
+    "pyctcdecode>=0.5",
+    "jiwer>=3.0",
+    # Eval tools
+    "meeteval>=0.4",
+    "pyannote.metrics>=3.2",
+    # Optional but useful
+    "wandb>=0.17",
 ]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+    "ruff>=0.6",
+]
+# Heavy/optional pieces; install only when needed (some have native deps)
+ina = ["inaSpeechSegmenter>=0.7"]
+kenlm = ["kenlm>=0.1"]
+nemo = ["nemo-toolkit[asr]>=2.0"]
+wespeaker = ["wespeaker>=1.3"]
+
+[project.scripts]
+coser = "src.cli:app"
+
 requires-python = "~=3.10.0"
 
 
 [tool.ruff]
 line-length = 99
 src = ["src"]
-include = ["pyproject.toml", "src/**/*.py"]
+include = ["pyproject.toml", "src/**/*.py", "tests/**/*.py"]
 
 [tool.ruff.lint]
 extend-select = ["I"]  # Add import sorting
@@ -36,3 +77,6 @@ extend-select = ["I"]  # Add import sorting
 known-first-party = ["src"]
 force-sort-within-sections = true
 
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
