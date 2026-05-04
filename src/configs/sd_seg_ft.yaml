@@ -1,0 +1,11 @@
+# pyannote/segmentation-3.0 light FT.
+
+base_model: pyannote/segmentation-3.0
+rttm_dir: data/raw/rttm
+audio_dir: data/raw/longform
+output_dir: models/pyannote_seg_ft
+
+learning_rate: 1.0e-5
+num_epochs: 5
+batch_size: 32
+duration_s: 5.0

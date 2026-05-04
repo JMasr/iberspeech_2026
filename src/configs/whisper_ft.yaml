@@ -1,0 +1,19 @@
+# Whisper-large-v3 fine-tune (round 1).
+# Round 2 adds pseudo_label_parquet; otherwise identical.
+
+base_model: openai/whisper-large-v3
+train_manifest: data/interim/manifest.parquet
+pseudo_label_parquet: null     # set after P2 self-training
+output_dir: models/whisper_ft_r1
+
+language: es
+task: transcribe
+
+learning_rate: 1.0e-5
+per_device_batch_size: 4       # 49 GB → 4 fits comfortably with bf16 + grad-ckpt
+gradient_accumulation_steps: 4 # effective 96 across 6 GPUs
+num_epochs: 4
+warmup_ratio: 0.05
+bf16: true
+eval_steps: 500
+save_steps: 500

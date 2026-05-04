@@ -1,0 +1,39 @@
+# End-to-end ASR inference recipe.
+
+whisper_checkpoint: models/whisper_ft_r2     # use _r1 before P2
+xlsr_checkpoint: models/xlsr_ft_r2
+
+# Stage 0 inputs (one parquet per recording).
+chunks_dir: data/processed/chunks
+
+# Decoding
+n_best: 5
+no_repeat_ngram_size: 3
+beam_size: 5
+language: es
+overlap_s: 1.0
+
+# Logit biasing
+logit_bias:
+  enabled: true
+  lexicons_path: models/lexicons.json
+  bias_value: 0.5
+
+# Fusion
+fusion:
+  use_mbr: true
+  use_rover: true
+  use_kenlm: true
+  kenlm_arpa: models/coser_5gram.arpa
+  kenlm_alpha: 0.5
+  kenlm_beta: 1.5
+
+# Non-speech mask
+nonspeech_mask:
+  enabled: true
+
+# Music routing
+skip_music: true
+
+# Output
+out_dir: experiments/latest/asr

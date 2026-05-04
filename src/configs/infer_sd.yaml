@@ -1,0 +1,16 @@
+# End-to-end SD inference recipe.
+
+segmentation_checkpoint: models/pyannote_seg_ft/model.ckpt
+embedding_backend: wespeaker
+plda_path: models/plda_coser.npz
+
+# Boundary refinement
+asr_words_dir: experiments/latest/asr_words   # word timestamps from infer-asr
+snap_radius_s: 0.20
+
+# RTTM cleanup
+min_segment_s: 0.20
+merge_gap_s: 0.50
+
+# Output
+out_dir: experiments/latest/sd

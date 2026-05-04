@@ -1,0 +1,13 @@
+# Wav2Vec2-XLS-R-1B (CTC) fine-tune.
+
+base_model: facebook/wav2vec2-xls-r-1b
+train_manifest: data/interim/manifest.parquet
+pseudo_label_parquet: null
+output_dir: models/xlsr_ft_r1
+
+learning_rate: 5.0e-5
+per_device_batch_size: 8
+gradient_accumulation_steps: 2
+num_epochs: 8
+warmup_ratio: 0.10
+bf16: true

@@ -1,0 +1,6 @@
+# Stage 0B BEATs (or PANNs CNN14 fallback) tagger config.
+
+backend: beats   # "beats" | "panns"
+checkpoint: models/beats/BEATs_iter3_plus_AS2M.pt
+score_threshold: 0.30
+chunk_s: 30.0
