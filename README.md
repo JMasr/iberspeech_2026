@@ -1,61 +1,94 @@
-# interspeech_2026_uvigo_balidea
+# iberspeech_2026 — UVigo–Balidea ALBAYZIN Speech-COSER 2026
 
-<a target="_blank" href="https://cookiecutter-data-science.drivendata.org/">
-    <img src="https://img.shields.io/badge/CCDS-Project%20template-328F97?logo=cookiecutter" />
-</a>
+Submission code for the IberSPEECH 2026 ALBAYZIN Speech-COSER evaluation. We compete on **ASR** (WER, dual scoring: raw-with-punct + normalized lowercase no-punct) and **SD** (DER, no collar, includes overlap). STD is out of scope.
 
-Repo for the UVigo-Balidea submitions on the ALBAYZIN 2026
+The full system design is in [`/home/jmramirez/.claude/plans/nested-nibbling-puppy.md`](/home/jmramirez/.claude/plans/nested-nibbling-puppy.md). Phase-by-phase progress is tracked in [`PROGRESS.md`](PROGRESS.md).
 
-## Project Organization
+## Quickstart
 
-```
-├── LICENSE            <- Open-source license if one is chosen
-├── Makefile           <- Makefile with convenience commands like `make data` or `make train`
-├── README.md          <- The top-level README for developers using this project.
-├── data
-│   ├── external       <- Data from third party sources.
-│   ├── interim        <- Intermediate data that has been transformed.
-│   ├── processed      <- The final, canonical data sets for modeling.
-│   └── raw            <- The original, immutable data dump.
-│
-├── docs               <- A default mkdocs project; see www.mkdocs.org for details
-│
-├── models             <- Trained and serialized models, model predictions, or model summaries
-│
-├── notebooks          <- Jupyter notebooks. Naming convention is a number (for ordering),
-│                         the creator's initials, and a short `-` delimited description, e.g.
-│                         `1.0-jqp-initial-data-exploration`.
-│
-├── pyproject.toml     <- Project configuration file with package metadata for 
-│                         interspeech_2026_uvigo_balidea and configuration for tools like black
-│
-├── references         <- Data dictionaries, manuals, and all other explanatory materials.
-│
-├── reports            <- Generated analysis as HTML, PDF, LaTeX, etc.
-│   └── figures        <- Generated graphics and figures to be used in reporting
-│
-├── requirements.txt   <- The requirements file for reproducing the analysis environment, e.g.
-│                         generated with `pip freeze > requirements.txt`
-│
-├── setup.cfg          <- Configuration file for flake8
-│
-└── interspeech_2026_uvigo_balidea   <- Source code for use in this project.
-    │
-    ├── __init__.py             <- Makes interspeech_2026_uvigo_balidea a Python module
-    │
-    ├── config.py               <- Store useful variables and configuration
-    │
-    ├── dataset.py              <- Scripts to download or generate data
-    │
-    ├── features.py             <- Code to create features for modeling
-    │
-    ├── modeling                
-    │   ├── __init__.py 
-    │   ├── predict.py          <- Code to run model inference with trained models          
-    │   └── train.py            <- Code to train models
-    │
-    └── plots.py                <- Code to create visualizations
+```bash
+make create_environment      # uv venv 3.10
+source .venv/bin/activate
+make requirements            # uv sync (heavy stack: torch, pyannote, transformers, …)
+make lint test               # ruff + pytest
 ```
 
---------
+## Pipeline (one make target per stage)
 
+```bash
+make ingest             # build COSER manifest + stratified train/dev split
+make stage0             # tier-0A enrichment (VAD/SNR/spectral/inaSpeechSegmenter)
+make stage0-beats       # tier-0B (BEATs AudioSet tagger) on flagged chunks
+make pseudo-label       # confidence-filtered set from the 10h dirty pool
+
+make train-asr-whisper  # FT Whisper-large-v3 (full)
+make train-asr-xlsr     # FT XLS-R-1B (CTC)
+make train-sd-seg       # FT pyannote segmentation-3.0
+make build-lm           # KenLM 5-gram on in-domain text
+
+make infer-asr          # full ASR pipeline (chunked + ROVER + MBR + LM)
+make infer-sd           # full SD pipeline (VBx + ASR-anchored boundary snap)
+make score-asr          # meeteval, raw + normalized
+make score-sd           # dscore-style, no-collar, overlap-included
+
+make submit-asr SUBMIT=1   # build zip and (with SUBMIT=1) record the submission
+make submit-sd  SUBMIT=1
+make verify                # lint + tests + CLI self-check
+```
+
+The `coser` console script (registered via `[project.scripts]`) wraps the same CLI: `coser stage0 …`, `coser infer-asr …`, etc.
+
+## Layout
+
+```
+src/
+├── cli.py                  # typer entry, one subcommand per Make target
+├── data/                   # ingest, audio, normalize, stage0, stage0_beats, pseudo_label
+├── asr/                    # whisper_ft, w2v2_ft, infer_long, nbest, logit_bias, nonspeech_mask
+├── sd/                     # seg_ft, embed, cluster_vbx, overlap, refine, pipeline
+├── fusion/                 # rover, mbr, lm_kenlm, lm_neural
+├── eval/                   # score_asr, score_sd, leaderboard
+└── configs/                # YAML per experiment
+
+data/dialect_lexicon.json   # curated bidirectional lexicon (province → elision rules)
+experiments/<date>_<id>/    # one directory per leaderboard submission, immutable
+references/                 # COSER_EvalPlan.pdf, initial_idea.md
+PROGRESS.md                 # phase tracker
+```
+
+## Bench (public-data pipeline validation)
+
+Before COSER data lands, validate the pipeline on public datasets. **Bench data never enters COSER FT** — it lives under `data/bench/` and the FT recipes refuse it (eval rule compliance).
+
+```bash
+make bench-synthetic            # E2E with stub recognizers — runs in <50ms, no GPU
+make bench-ablation             # per-component lift table over MBR/ROVER/MASK/SNAP
+make bench-cv-es                # Whisper-large-v3 zero-shot on 50 CV ES clips
+make bench-cv-es \
+    SECOND_VOTER=facebook/wav2vec2-xls-r-1b   # adds ROVER lift measurement
+
+# VoxConverse SD baseline + boundary-snap delta:
+VC_AUDIO=/path/to/voxconverse/audio \
+VC_RTTM=/path/to/voxconverse/dev   \
+VC_ASR_WORDS=experiments/bench/cv_es/words \
+make bench-voxconverse
+```
+
+`make verify` runs lint + tests + the synthetic bench. The CV ES and VoxConverse benches need network and the heavy stack and are run on demand.
+
+## Notes on the heavy stack
+
+`torch`, `transformers`, `pyannote.audio`, etc. are pinned in `pyproject.toml` but only resolved when you actually run training/inference. The deterministic library (normalization, ROVER, MBR, RTTM cleanup, leaderboard packaging) imports nothing heavy and is fully tested via `make test`. Heavy imports happen inside the function bodies that use them so that `make lint test` works on a bare environment.
+
+Optional extras (install only when needed; some have native build deps):
+
+```bash
+uv pip install -e '.[ina]'        # inaSpeechSegmenter
+uv pip install -e '.[kenlm]'      # KenLM Python bindings
+uv pip install -e '.[wespeaker]'  # WeSpeaker
+uv pip install -e '.[nemo]'       # NeMo (only for the Canary-1B P4 stretch goal)
+```
+
+## License
+
+MIT — see [LICENSE](LICENSE).
