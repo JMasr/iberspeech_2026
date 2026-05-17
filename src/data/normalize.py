@@ -38,6 +38,26 @@ _WS = re.compile(r"\s+")
 # Pattern for stray leading/trailing apostrophes — strip.
 _EDGE_APOS = re.compile(r"(?:^|\s)'+|'+(?=\s|$)")
 
+# COSER-specific transcription markup — only appears in COSER soft labels.
+# `[HS:spkid text]` (and variants like `[HCruz: text]`, `[H1: text]`) flag an
+# embedded simultaneous speaker — both the tag and the bracketed inner text are
+# stripped: the embedded text belongs to a different speaker and is not part
+# of the primary turn's transcription. The block can contain nested simple
+# bracket annotations (e.g. `[HS:E1 [Asent].]`), so the regex matches
+# non-bracket runs interleaved with one-level-deep `[…]` groups.
+_COSER_HS = re.compile(r"\[H[\w]*:(?:[^\[\]]|\[[^\[\]]*\])*\]")
+# Malformed openers — `[H<id>:` that never closes its bracket in the source
+# transcript. Strip the literal opener token so it doesn't leak into scoring.
+_COSER_HS_MALFORMED = re.compile(r"\[H[\w]*:")
+# `[Anonim]`, `[RISAS]`, `[V-Sml]`, `[V-Ljn]`, `[Asent]`, `[R-Glp]`, `[PS]`,
+# `[TOS]`, `[OTRAS-EM]`, `[ONOMAT]`, `[EXCL]`, `[Rndo: …]` and any other
+# bracketed annotation. Catch-all after _COSER_HS has consumed overlap blocks.
+_COSER_BRACKETS = re.compile(r"\[[^\[\]]*\]")
+# `dialect=standard` — keep the canonical (standard) form on the right of the `=`.
+_COSER_REPAIR = re.compile(r"(\w+)=(\w+)")
+# Mid-word pause/hesitation marker.
+_COSER_INWORD_PAUSE = re.compile(r"·")
+
 
 def strip_nonspeech(text: str) -> str:
     """Remove organizer-banned non-speech tokens. Used by both raw and normalized paths."""
@@ -66,6 +86,35 @@ def normalize_for_eval(text: str) -> str:
     # 6. Collapse whitespace.
     text = _WS.sub(" ", text).strip()
     return text
+
+
+def clean_coser_reference(text: str) -> str:
+    """Strip COSER soft-label markup from a turn's transcription.
+
+    Applies the redesign §2.2 e catalogue in fixed order:
+      1. Drop ``[HS:spk text]`` overlap blocks (text belongs to another speaker).
+      2. Drop any other bracketed annotation: ``[Anonim]``, ``[RISAS]``,
+         ``[V-Sml]``, ``[Asent]``, etc.
+      3. Resolve ``dialect=standard`` repair pairs to the standard form.
+      4. Drop ``·`` mid-word pause markers.
+      5. Collapse whitespace.
+
+    This is the first step before either ``post_edit_raw`` or ``normalize_for_eval``
+    when the input is a COSER soft-label transcript line. Idempotent.
+    """
+    if text is None:
+        return ""
+    text = unicodedata.normalize("NFC", text)
+    text = _COSER_HS.sub(" ", text)
+    text = _COSER_BRACKETS.sub(" ", text)
+    # Malformed `[H<id>:` openers without a closing bracket. Run after the
+    # well-formed and bracket sweeps so we only catch true leftovers.
+    text = _COSER_HS_MALFORMED.sub(" ", text)
+    # Stray closing brackets left by malformed sources.
+    text = text.replace("]", " ").replace("[", " ")
+    text = _COSER_REPAIR.sub(r"\2", text)
+    text = _COSER_INWORD_PAUSE.sub("", text)
+    return _WS.sub(" ", text).strip()
 
 
 def post_edit_raw(text: str) -> str:
