@@ -1,4 +1,4 @@
-# iberspeech_2026 — UVigo–Balidea ALBAYZIN Speech-COSER 2026
+# Iberspeech 2026 — UVigo–Balidea ALBAYZIN Speech-COSER 2026
 
 Submission code for the IberSPEECH 2026 ALBAYZIN Speech-COSER evaluation. We compete on **ASR** (WER, dual scoring: raw-with-punct + normalized lowercase no-punct) and **SD** (DER, no collar, includes overlap). STD is out of scope.
 
