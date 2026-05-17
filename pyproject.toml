@@ -15,6 +15,7 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
 ]
+requires-python = "==3.10.*"
 dependencies = [
     "pip",
     "python-dotenv",
@@ -45,6 +46,10 @@ dependencies = [
     "pyannote.metrics>=3.2",
     # Optional but useful
     "wandb>=0.17",
+    "faster-whisper",
+    "pyannote.audio",
+    "pyannote.metrics",
+    "wespeaker",
 ]
 
 [project.optional-dependencies]
@@ -62,8 +67,6 @@ wespeaker = ["wespeaker>=1.3"]
 [project.scripts]
 coser = "src.cli:app"
 
-requires-python = "~=3.10.0"
-
 
 [tool.ruff]
 line-length = 99
@@ -80,3 +83,12 @@ force-sort-within-sections = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra"
+
+[tool.uv]
+environments = ["sys_platform == 'linux'"]
+
+[tool.uv.sources]
+wespeaker = { git = "https://github.com/wenet-e2e/wespeaker.git" }
+
+[tool.flit.module]
+name = "src"
